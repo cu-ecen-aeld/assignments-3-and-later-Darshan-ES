@@ -92,8 +92,8 @@ sudo chmod u+s ${OUTDIR}/rootfs/bin/busybox
 
 # Check Library Dependencies
 echo "Library dependencies:"
-${CROSS_COMPILE}readelf -a /home/darshanes/tm/rootfs/bin/busybox | grep "program interpreter"
-${CROSS_COMPILE}readelf -a /home/darshanes/tm/rootfs/bin/busybox | grep "Shared library"
+${CROSS_COMPILE}readelf -a ${OUTDIR}/rootfs/bin/busybox | grep "program interpreter"
+${CROSS_COMPILE}readelf -a ${OUTDIR}/rootfs/bin/busybox | grep "Shared library"
 
 # Copy Libraries
 SYSROOT=$(${CROSS_COMPILE}gcc --print-sysroot)
