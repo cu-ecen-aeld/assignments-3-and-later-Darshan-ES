@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/sh
 
 #This '$#' was based on content at [ https://www.gnu.org/software/bash/manual/bash.html#Positional-Parameters ] with modifications #[ '$#' Gives values of the Positional arguments in decimal ].
 if [ $# -ne 2 ]; then

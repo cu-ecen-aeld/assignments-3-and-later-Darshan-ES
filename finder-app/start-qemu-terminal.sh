@@ -4,10 +4,10 @@
 
 set -e
 
-OUTDIR=$1
+OUTDIR="/home/darshanes/tm"
 
 if [ -z "${OUTDIR}" ]; then
-    OUTDIR=/tmp/aeld
+    OUTDIR="/home/darshanes/tm/"
     echo "No outdir specified, using ${OUTDIR}"
 fi
 
