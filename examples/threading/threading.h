@@ -14,14 +14,17 @@ struct thread_data{
      * between the start_thread_obtaining_mutex function and
      * your thread implementation.
      */
-
+    pthread_mutex_t *mutex; //Locking the Mutex
+    int wait_to_obtain_ms;  //time to wait 
+    int wait_to_release_ms; //time after which mutex lock is released
+    bool thread_complete_success; //status for completion	
     /**
      * Set to true if the thread completed with success, false
      * if an error occurred.
      */
-    bool thread_complete_success;
 };
 
+void* threadfunc(void* thread_param);
 
 /**
 * Start a thread which sleeps @param wait_to_obtain_ms number of milliseconds, then obtains the
