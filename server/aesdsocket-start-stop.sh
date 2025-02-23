@@ -1,7 +1,6 @@
 #!/bin/sh
 
-SCRIPT_DIR="$(dirname "$(realpath "$0")")"
-DAEMON="$SCRIPT_DIR/aesdsocket"
+DAEMON="/usr/bin/aesdsocket"
 DAEMON_ARG="-d"
 
 find_process() {
@@ -27,17 +26,17 @@ case "$1" in
         if [ -n "$PID" ]; then
             echo "aesdsocket started with PID(s): $PID"
         else
-            echo "Failed to start aesdsocket."
+            echo "Failed  aesdsocket."
             exit 1
         fi
         ;;
 
     stop)
-        echo "Checking for running aesdsocket process..."
+        echo "Checking for aesdsocket runnig process..."
         PID=$(find_process)
 
         if [ -z "$PID" ]; then
-            echo "aesdsocket is not running."
+            echo "aesdsocket not working."
             exit 1
         fi
 
