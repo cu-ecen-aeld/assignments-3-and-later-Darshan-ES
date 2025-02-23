@@ -35,7 +35,7 @@ void SigHandler(int sig) {
     close(server_fd);
     remove(FILE_PATH);
     closelog();
-    printf("SIGINT and SIGTERM Detected v1 \n");
+    printf("SIGINT and SIGTERM Detected  \n");
     exit(EXIT_SUCCESS);
 }
 
