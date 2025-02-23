@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
                     break;
                 }
                  else {
-	       syslog(LOG_INFO, "reopening file Sucess");
+	       syslog(LOG_INFO, "reopening File Sucess");
 	     }
 
                 memset(Str_buffer, 0, sizeof(Str_buffer));
