@@ -1,37 +1,68 @@
 #!/bin/sh
 
-DAEMON=/usr/bin/aesdsocket   
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+DAEMON="$SCRIPT_DIR/aesdsocket"
 DAEMON_ARG="-d"
-FILE_PID=/var/run/aesdsocket.pid
+
+find_process() {
+    ps aux | grep "$DAEMON" | grep -v grep | awk '{print $2}'
+}
 
 case "$1" in
     start)
-        echo "aesdsocket Starting."
-        
-        start-stop-daemon --start --background --quiet --make-pidfile --pidfile $FILE_PID \
-            --exec $DAEMON -- $DAEMON_ARG
-            
-        if [ -f "$FILE_PID" ]; then
-        echo "Aesd Socket Started with PID $(cat $FILE_PID)"
-	else
-        echo "Failed to start Aesdsocket."
-	fi
-        ;;
-    
-    stop)
-        echo "aesdsocket Stopping."
-        
-        if [ -f "$FILE_PID" ]; then
-            start-stop-daemon --stop --quiet --pidfile $FILE_PID --signal SIGTERM
-            rm -f $FILE_PID
-            echo "aesdsocket stopped."
+        echo "Checking for existing aesdsocket process..."
+        PID=$(find_process)
+
+        if [ -n "$PID" ]; then
+            echo "aesdsocket is already running with PID(s): $PID"
+            exit 1
+        fi
+
+        echo "Starting aesdsocket..."
+        $DAEMON $DAEMON_ARG &
+
+        sleep 1  # Wait to allow process to start
+
+        PID=$(find_process)
+        if [ -n "$PID" ]; then
+            echo "aesdsocket started with PID(s): $PID"
         else
-            echo "aesdsocket is not running."
+            echo "Failed to start aesdsocket."
+            exit 1
         fi
         ;;
-    
+
+    stop)
+        echo "Checking for running aesdsocket process..."
+        PID=$(find_process)
+
+        if [ -z "$PID" ]; then
+            echo "aesdsocket is not running."
+            exit 1
+        fi
+
+        echo "Stopping aesdsocket with PID(s): $PID"
+        kill -TERM $PID
+        sleep 1
+
+        # Ensure process is stopped
+        PID=$(find_process)
+        if [ -n "$PID" ]; then
+            echo "Process did not terminate, kill..."
+            kill -KILL $PID
+            sleep 1
+        fi
+
+        PID=$(find_process)
+        if [ -n "$PID" ]; then
+            echo "ERROR_LOG: Process is running. Manually intervene."
+        else
+            echo "aesdsocket stopped ."
+        fi
+        ;;
+
     *)
-        echo "arguments: $0 {start|stop}"
+        echo "Usage: $0 {start|stop}"
         exit 1
         ;;
 esac
