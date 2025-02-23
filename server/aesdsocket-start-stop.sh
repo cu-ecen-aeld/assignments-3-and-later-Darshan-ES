@@ -14,7 +14,7 @@ case "$1" in
         if [ -f "$FILE_PID" ]; then
         echo "Aesd Socket Started with PID $(cat $FILE_PID)"
 	else
-        echo "Failed to start aesdsocket."
+        echo "Failed to start Aesdsocket."
 	fi
         ;;
     
