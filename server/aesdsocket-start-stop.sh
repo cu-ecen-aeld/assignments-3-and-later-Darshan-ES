@@ -13,12 +13,7 @@ start() {
         echo "Error: $DAEMON_LOC not found ."
         exit 1
     fi
-    
-    if [ ! -x "$DAEMON_NAME" ]; then
-        echo "Error: $DAEMON_NAME not found ."
-        exit 1
-    fi
-
+   
     start-stop-daemon --start --quiet --background --exec "$DAEMON_LOC" -- $DAEMON_ARGS
     if [ $? -eq 0 ]; then
         echo "$DAEMON_NAME started successfully."
