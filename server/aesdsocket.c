@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
     int Reuse_opt = 1;
     
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &Reuse_opt, sizeof(Reuse_opt)) < 0) {
-        syslog(LOG_ERR, "setsockopt failed");
+        syslog(LOG_ERR, "Setsockopt failed");
         close(server_fd);
         exit(EXIT_FAILURE);
     }
