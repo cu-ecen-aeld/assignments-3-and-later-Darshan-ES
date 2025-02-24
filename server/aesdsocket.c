@@ -40,6 +40,7 @@ void SigHandler(int sig) {
 }
 
 int main(int argc, char *argv[]) {
+printf("v2 \n");
 
     struct sockaddr_in server_addr, client_addr;
     char Str_buffer[1024];
