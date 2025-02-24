@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
     // Create socket
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
-        syslog(LOG_ERR, "Socket creation failed");
+        syslog(LOG_ERR, "Socket Creation failed");
         exit(EXIT_FAILURE);
     }
     else {
