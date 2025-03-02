@@ -7,11 +7,29 @@
 #include <syslog.h>
 #include <sys/socket.h>
 #include <signal.h>
+#include <time.h>
+#include <sys/time.h>
+#include <sys/queue.h>
+#include <pthread.h>
+#include <stdbool.h>
+#include <errno.h>
 
 #define PORT_NO 9000
 #define FILE_PATH "/var/tmp/aesdsocketdata"
+#define TIMESTAMP_INT 10
 
 int server_fd;
+bool Exit_Flag = false;
+pthread_mutex_t FileMutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Link list Structure 
+typedef struct thread_node {
+    pthread_t thread;
+    int client_fd;
+    SLIST_ENTRY(thread_node) NextNode;
+} thread_node_t;
+
+SLIST_HEAD(thread_list, thread_node) HeadNode = SLIST_HEAD_INITIALIZER(HeadNode);
 
 // Function to daemonize 
 void daemonizeProcess() {
@@ -29,22 +47,122 @@ void daemonizeProcess() {
     close(fd);
 }
 
+// Timestamp in every 10 seconds 
+void *WriteTimestamp(void *arg) {
+    while (Exit_Flag==0) {
+        sleep(TIMESTAMP_INT);
+
+        
+        time_t CurrentTime = time(NULL);
+        struct tm *tm_CurrentTimeinfo = localtime(&CurrentTime);
+        
+        char timestamp_arr[100];
+        
+        strftime(timestamp_arr, sizeof(timestamp_arr), "timestamp:%Y-%m-%d %H:%M:%S\n", tm_CurrentTimeinfo);
+
+        pthread_mutex_lock(&FileMutex);
+        
+        int file_fd = open(FILE_PATH, O_WRONLY | O_CREAT | O_APPEND, 0644);
+        (file_fd >= 0) ? (write(file_fd, timestamp_arr, strlen(timestamp_arr)), close(file_fd)): syslog(LOG_ERR, "file Not open for timestamp writing");
+
+        pthread_mutex_unlock(&FileMutex);
+    }
+    return NULL;
+}
+
+//  Function to handle client connections 
+void *ClientHandle(void *arg) {
+
+    int client_fd = *(int *)arg;
+    
+    free(arg); 
+
+    char Str_buffer[1024];
+    ssize_t bytes_rec;
+
+    syslog(LOG_INFO, "Accepted connection from client: %d", client_fd);
+
+    
+    pthread_mutex_lock(&FileMutex);
+    int file_fd = open(FILE_PATH, O_WRONLY | O_CREAT | O_APPEND, 0644);
+    pthread_mutex_unlock(&FileMutex);
+
+    if (file_fd < 0) {
+        syslog(LOG_ERR, "Error opening file: %s", strerror(errno));
+        close(client_fd);
+        return NULL;
+    } else {
+       syslog(LOG_INFO, "FIle open success");
+    }
+
+    while ((bytes_rec = recv(client_fd, Str_buffer, sizeof(Str_buffer) - 1, 0)) > 0) {
+        Str_buffer[bytes_rec] = '\0';  // Null terminate
+
+       pthread_mutex_lock(&FileMutex);
+        
+        ssize_t Total_WR = 0;
+        while (Total_WR < bytes_rec) {
+            ssize_t written = write(file_fd, Str_buffer + Total_WR, bytes_rec - Total_WR);
+            if (written < 0) {
+                syslog(LOG_ERR, "unable writing to file");
+                break;
+            }else {
+	       syslog(LOG_INFO, "writing to file Success");
+	    }
+            Total_WR += written;
+        }
+
+        fsync(file_fd);  // Ensure data is written immediately
+        pthread_mutex_unlock(&FileMutex);
+
+        if (strchr(Str_buffer, '\n')) {  // If newline detected, read back the file
+            close(file_fd);
+            pthread_mutex_lock(&FileMutex);
+            file_fd = open(FILE_PATH, O_RDONLY);
+            pthread_mutex_unlock(&FileMutex);
+
+            if (file_fd < 0) {
+                syslog(LOG_ERR, "Error reopening file for reading");
+                break;
+            } else {
+       syslog(LOG_INFO, "File Reponed");
+    }
+
+            memset(Str_buffer, 0, sizeof(Str_buffer));
+            for (ssize_t bytes_rec = read(file_fd, Str_buffer, sizeof(Str_buffer)); bytes_rec > 0; bytes_rec = read(file_fd, Str_buffer, sizeof(Str_buffer))) {
+    
+               send(client_fd, Str_buffer, bytes_rec, 0);
+}
+
+            close(file_fd);
+            break;
+        }
+    }
+
+    close(client_fd);
+    syslog(LOG_INFO, "Closed connection from client: %d", client_fd);
+
+    return NULL;
+}
+
 // Signal handler for SIGINT and SIGTERM
 void SigHandler(int sig) {
     syslog(LOG_INFO, "Signal received, exiting...");
-    close(server_fd);
-    remove(FILE_PATH);
-    closelog();
+    Exit_Flag= true;
     printf("SIGINT And SIGTERM Detected  \n");
-    exit(EXIT_SUCCESS);
+    shutdown(server_fd, SHUT_RDWR);
+    
 }
 
 int main(int argc, char *argv[]) {
-printf("v2 \n");
+printf("v6 \n");
 
     struct sockaddr_in server_addr, client_addr;
-    char Str_buffer[1024];
+    
     socklen_t ClientLen = sizeof(client_addr);
+    
+    int *client_File_ptr;
+    pthread_t timestamp_th;
 
     openlog("aesdsocket", LOG_PID, LOG_USER);
 
@@ -108,70 +226,68 @@ printf("v2 \n");
     else {
        syslog(LOG_INFO, "Sucess to Listen");
     }
-
+	pthread_create(&timestamp_th, NULL, WriteTimestamp, NULL);
     syslog(LOG_INFO, "Server initialized, listening on port %d", PORT_NO);
-
-    while (1) {
-        int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &ClientLen);
-        if (client_fd < 0) continue;
-
-        syslog(LOG_INFO, "Accepted connection from %s", inet_ntoa(client_addr.sin_addr));
-
-        // Open file writing
-        int file_fd = open(FILE_PATH, O_WRONLY | O_CREAT | O_APPEND, 0644);
-        if (file_fd < 0) {
-            syslog(LOG_ERR, "File not opened");
-            close(client_fd);
+    
+    while (Exit_Flag==0)
+    {
+    	 client_File_ptr = malloc(sizeof(int));  // Allocate memory 
+        if (client_File_ptr==0) {
+            syslog(LOG_ERR, "Memory Not Allocated");
             continue;
         }
-        else {
-       syslog(LOG_INFO, "File opened");
-     }
-
-        // Receive Data
-        ssize_t bytes_rec;
-        while ((bytes_rec = recv(client_fd, Str_buffer, sizeof(Str_buffer) - 1, 0)) > 0) {
-        
-            Str_buffer[bytes_rec] = '\0';  // Null terminate
-            
-            if (write(file_fd, Str_buffer, bytes_rec) != bytes_rec) {
-                syslog(LOG_ERR, "Write operation failed.");
-            }
-             else {
-	       syslog(LOG_INFO, "Write operation Sucess");
-	     }
-            
-            fsync(file_fd);  // Flush disk
-
-            
-            if (strchr(Str_buffer, '\n')) {// if newline detected
-                close(file_fd);
-                file_fd = open(FILE_PATH, O_RDONLY);
-                if (file_fd < 0) {
-                    syslog(LOG_ERR, "reopening file Error");
-                    break;
-                }
-                 else {
-	       syslog(LOG_INFO, "reopening File Sucess");
-	     }
-
-                memset(Str_buffer, 0, sizeof(Str_buffer));
-                
-                for (; (bytes_rec = read(file_fd, Str_buffer, sizeof(Str_buffer))) > 0;) {
-                    send(client_fd, Str_buffer, bytes_rec, 0);
-                }
-
-                close(file_fd);
-                break;
-            }
+        else{
+        	syslog(LOG_INFO, "Memory Allocated");
         }
-
-        close(file_fd);
         
-        syslog(LOG_INFO, "Closed connection from %s", inet_ntoa(client_addr.sin_addr));
+        *client_File_ptr = accept(server_fd, (struct sockaddr*)&client_addr, &ClientLen);
         
-        close(client_fd);
+        if (*client_File_ptr < 0) {
+            free(client_File_ptr);
+            continue;
+        }
+        
+        syslog(LOG_INFO, "Accepted connection from %s", inet_ntoa(client_addr.sin_addr));
+        
+        thread_node_t *NewNode = malloc(sizeof(thread_node_t)); //Create New Node for Handling CLient
+        if(NewNode==0)
+        {
+           syslog(LOG_ERR, "Memory Not allocated for thread ");
+           close(*client_File_ptr);
+           free(client_File_ptr);
+           continue;
+        }
+        else
+        {
+          syslog(LOG_INFO, "Memory Allocated for Thread");
+        }
+        
+        NewNode->client_fd = *client_File_ptr;
+        pthread_create(&NewNode->thread, NULL, ClientHandle, client_File_ptr);
+        SLIST_INSERT_HEAD(&HeadNode, NewNode, NextNode);
+        
     }
+    
+    thread_node_t *node;
+    
+    while (SLIST_EMPTY(&HeadNode)==0) { //wait till all threads finish
+        node = SLIST_FIRST(&HeadNode);
+        pthread_join(node->thread, NULL);
+        SLIST_REMOVE_HEAD(&HeadNode, NextNode);
+        free(node);
+    }
+    
+      close(server_fd);
+	
+    // Graceful Cleanup
+    pthread_cancel(timestamp_th);
+    pthread_join(timestamp_th, NULL);
+    pthread_mutex_destroy(&FileMutex);
+    close(server_fd);
+    remove(FILE_PATH);
+    closelog();
+    syslog(LOG_INFO, "gracefully exit server");
+
 
     return 0;
 }
