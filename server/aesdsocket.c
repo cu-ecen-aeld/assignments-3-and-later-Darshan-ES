@@ -208,7 +208,7 @@ printf("v6 \n");
     if (strcmp(argv[1], "-d") == 0) {
         daemonizeProcess();
     } else {
-        syslog(LOG_INFO, "No daemon mode requested");
+        syslog(LOG_INFO, "No Daemon mode requested");
     }
 }
 
