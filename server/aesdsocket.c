@@ -16,7 +16,7 @@
 
 #define PORT_NO 9000
 #define FILE_PATH "/var/tmp/aesdsocketdata"
-#define TIMESTAMP_INT 1
+#define TIMESTAMP_INT 10
 
 int server_fd;
 bool Exit_Flag = false;
