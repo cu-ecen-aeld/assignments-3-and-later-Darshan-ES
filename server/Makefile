@@ -1,9 +1,9 @@
-CC=gcc
-CC_CROSS = $(CROSS_COMPILE)gcc
-CFLAGS=-Wall -pthread
-TARGET=aesdsocket
-SRC_File =aesdsocket.c
-OBJ_File=$(SRC_File :.c=.o)
+CC?=gcc
+CC_CROSS ?= $(CROSS_COMPILE)gcc
+CFLAGS?=-Wall -pthread
+TARGET?=aesdsocket
+SRC_File ?=aesdsocket.c
+OBJ_File?=$(SRC_File :.c=.o)
 LDFLAGS ?= -lpthread -lrt
 # Build Application
 all: $(TARGET)
