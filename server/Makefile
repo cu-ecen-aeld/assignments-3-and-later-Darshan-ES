@@ -4,7 +4,7 @@ CFLAGS?=-Wall -pthread
 TARGET?=aesdsocket
 SRC_File ?=aesdsocket.c
 OBJ_File?=$(SRC_File :.c=.o)
-LDFLAGS ?= -lpthread -lrt
+LDFLAGS ?= -lpthread -lrt -Wl,--hash-style=gnu 
 # Build Application
 all: $(TARGET)
 
