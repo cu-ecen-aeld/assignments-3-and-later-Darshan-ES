@@ -16,7 +16,7 @@
 
 #define PORT_NO 9000
 #define FILE_PATH "/var/tmp/aesdsocketdata"
-#define TIMESTAMP_INT 10
+#define TIMESTAMP_INT 1
 
 int server_fd;
 bool Exit_Flag = false;
@@ -155,7 +155,7 @@ void SigHandler(int sig) {
 }
 
 int main(int argc, char *argv[]) {
-printf("v6 \n");
+printf("v7 \n");
 
     struct sockaddr_in server_addr, client_addr;
     
