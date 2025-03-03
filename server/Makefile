@@ -1,5 +1,5 @@
-CC?=gcc
-CC_CROSS ?= $(CROSS_COMPILE)gcc
+CROSS_COMPILE ?=
+CC ?= $(CROSS_COMPILE)gcc
 CFLAGS?=-Wall -pthread
 TARGET?=aesdsocket
 SRC_File ?=aesdsocket.c
@@ -12,8 +12,6 @@ all: $(TARGET)
 $(TARGET): $(SRC_File)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(TARGET) $(SRC_File)
 
-cross-compile: $(SRC_File)
-	$(CC_CROSS) $(CFLAGS) $(LDFLAGS) -o $(TARGET) $(SRC_File)
 	
 #clean	
 clean:
