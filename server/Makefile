@@ -10,10 +10,10 @@ all: $(TARGET)
 
 # target Build
 $(TARGET): $(SRC_File)
-	$(CC) $(CFLAGS) -o $(TARGET) $(SRC_File)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $(TARGET) $(SRC_File)
 
 cross-compile: $(SRC_File)
-	$(CC_CROSS) $(CFLAGS) -o $(TARGET) $(SRC_File)
+	$(CC_CROSS) $(CFLAGS) $(LDFLAGS) -o $(TARGET) $(SRC_File)
 	
 #clean	
 clean:
