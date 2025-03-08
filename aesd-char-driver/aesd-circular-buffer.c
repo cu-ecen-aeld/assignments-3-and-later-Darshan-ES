@@ -12,9 +12,13 @@
 #include <linux/string.h>
 #else
 #include <string.h>
+#include <stdio.h>
 #endif
 
 #include "aesd-circular-buffer.h"
+
+
+
 
 /**
  * @param buffer the buffer to search for corresponding offset.  Any necessary locking must be performed by caller.
@@ -32,7 +36,46 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
     /**
     * TODO: implement per description
     */
+  if (!buffer || !entry_offset_byte_rtn) 
+  {
+      return NULL;
+  }
+    
+	int count;
+	if (!buffer->full) 
+	{
+	    
+	    count = buffer->in_offs;
+	} else 
+	{
+	    count = AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+	}
+
+    size_t OffSet_Pos = 0;
+    
+       uint8_t i = 0;
+	while (i < count) {
+	    uint8_t Pos = (buffer->out_offs+i) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+	    struct aesd_buffer_entry *Buffer_entry = &buffer->entry[Pos];
+
+	      if (char_offset >= OffSet_Pos) 
+	      {
+	      
+		    if (char_offset < (OffSet_Pos + Buffer_entry->size)) 
+		    {
+			*entry_offset_byte_rtn = char_offset - OffSet_Pos;
+			return Buffer_entry;
+		    }
+		    
+		}
+
+	    OffSet_Pos += Buffer_entry->size;
+	    i++;
+	}
+
+    
     return NULL;
+   
 }
 
 /**
@@ -47,6 +90,42 @@ void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const s
     /**
     * TODO: implement per description
     */
+   if (!buffer || !add_entry) 
+   {
+      return;
+    
+   }
+    if (!buffer->full) 
+    {
+    
+        
+        
+        printf("No overwrite needed.\n");
+    }
+    else 
+	{
+	   struct aesd_buffer_entry *overwrite = &buffer->entry[buffer->in_offs];
+        
+        overwrite->buffptr = 0;
+        overwrite->size = 0;
+        
+        buffer->out_offs = (buffer->out_offs+1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;  
+	}
+   
+    
+    memcpy(&buffer->entry[buffer->in_offs], add_entry, sizeof(struct aesd_buffer_entry));
+    
+    buffer->in_offs = (buffer->in_offs+1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+    
+    if (buffer->in_offs == buffer->out_offs) 
+	{
+	    buffer->full = true;
+	    printf("Buffer is full. \n");
+	} 
+	else 
+	{
+	    printf("Buffer is not full yet. \n");
+	}
 }
 
 /**
@@ -54,5 +133,7 @@ void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const s
 */
 void aesd_circular_buffer_init(struct aesd_circular_buffer *buffer)
 {
-    memset(buffer,0,sizeof(struct aesd_circular_buffer));
+      memset(buffer,0,sizeof(struct aesd_circular_buffer));
 }
+
+
