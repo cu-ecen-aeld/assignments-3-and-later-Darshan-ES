@@ -210,7 +210,7 @@ static int aesd_setup_cdev(struct aesd_dev *dev)
     dev->cdev.ops = &aesd_fops;
     err = cdev_add (&dev->cdev, devno, 1);
     if (err) {
-        printk(KERN_ERR "Adding as a char dev failed with error %d\n", err);
+        printk(KERN_ERR "Adding as a Char dev failed with error %d\n", err);
     }
     return err;
 }
