@@ -10,6 +10,9 @@
 
 #ifdef __KERNEL__
 #include <linux/string.h>
+#include <linux/slab.h>  // For kmalloc and kfree
+#include <linux/mutex.h>
+#include <linux/printk.h>
 #else
 #include <string.h>
 #include <stdio.h>
@@ -85,14 +88,15 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
 * Any necessary locking must be handled by the caller
 * Any memory referenced in @param add_entry must be allocated by and/or must have a lifetime managed by the caller.
 */
-void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const struct aesd_buffer_entry *add_entry)
+const char* aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const struct aesd_buffer_entry *add_entry)
 {
     /**
     * TODO: implement per description
     */
+    const char *Value = NULL;
    if (!buffer || !add_entry) 
    {
-      return;
+      return Value;
     
    }
     if (!buffer->full) 
@@ -100,7 +104,7 @@ void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const s
     
         
         
-        printf("No overwrite needed.\n");
+        printk("No overwrite needed.\n");
     }
     else 
 	{
@@ -108,7 +112,7 @@ void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const s
         
         overwrite->buffptr = 0;
         overwrite->size = 0;
-        
+        Value = buffer->entry[buffer->out_offs].buffptr;
         buffer->out_offs = (buffer->out_offs+1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;  
 	}
    
@@ -117,15 +121,17 @@ void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const s
     
     buffer->in_offs = (buffer->in_offs+1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
     
-    if (buffer->in_offs == buffer->out_offs) 
+    if (buffer->in_offs == buffer->out_offs && buffer->full == false) 
 	{
 	    buffer->full = true;
-	    printf("Buffer is full. \n");
+	    printk("Buffer is full. \n");
 	} 
 	else 
 	{
-	    printf("Buffer is not full yet. \n");
+	    printk("Buffer is not full yet. \n");
 	}
+	
+	 return Value;
 }
 
 /**
