@@ -104,7 +104,7 @@ const char* aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, 
     
         
         
-        printk("No overwrite needed.\n");
+        //printk("No overwrite needed.\n");
     }
     else 
 	{
@@ -124,11 +124,11 @@ const char* aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, 
     if (buffer->in_offs == buffer->out_offs && buffer->full == false) 
 	{
 	    buffer->full = true;
-	    printk("Buffer is full. \n");
+	    //printk("Buffer is full. \n");
 	} 
 	else 
 	{
-	    printk("Buffer is not full yet. \n");
+	    //printk("Buffer is not full yet. \n");
 	}
 	
 	 return Value;
