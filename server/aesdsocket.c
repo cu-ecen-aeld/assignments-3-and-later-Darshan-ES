@@ -15,7 +15,14 @@
 #include <errno.h>
 
 #define PORT_NO 9000
+#define USE_AESD_CHAR_DEVICE 1
+
+#if USE_AESD_CHAR_DEVICE
+#define FILE_PATH "/dev/aesdchar"
+#else
 #define FILE_PATH "/var/tmp/aesdsocketdata"
+#endif
+
 #define TIMESTAMP_INT 10
 
 int server_fd;
@@ -48,6 +55,7 @@ void daemonizeProcess() {
 }
 
 // Timestamp in every 10 seconds 
+#if !USE_AESD_CHAR_DEVICE
 void *WriteTimestamp(void *arg) {
     while (Exit_Flag==0) {
         sleep(TIMESTAMP_INT);
@@ -69,6 +77,7 @@ void *WriteTimestamp(void *arg) {
     }
     return NULL;
 }
+#endif
 
 //  Function to handle client connections 
 void *ClientHandle(void *arg) {
@@ -82,9 +91,13 @@ void *ClientHandle(void *arg) {
 
     syslog(LOG_INFO, "Accepted connection from client: %d", client_fd);
 
-    
+#if USE_AESD_CHAR_DEVICE
+    pthread_mutex_lock(&FileMutex);
+    int file_fd = open(FILE_PATH, O_RDWR);
+#else
     pthread_mutex_lock(&FileMutex);
     int file_fd = open(FILE_PATH, O_WRONLY | O_CREAT | O_APPEND, 0644);
+#endif    
     pthread_mutex_unlock(&FileMutex);
 
     if (file_fd < 0) {
@@ -111,7 +124,9 @@ void *ClientHandle(void *arg) {
 	    }
             Total_WR += written;
         }
-
+#if USE_AESD_CHAR_DEVICE
+	lseek(file_fd,0,SEEK_SET);
+#endif
         fsync(file_fd);  // Ensure data is written immediately
         pthread_mutex_unlock(&FileMutex);
 
@@ -155,7 +170,6 @@ void SigHandler(int sig) {
 }
 
 int main(int argc, char *argv[]) {
-printf("v7 \n");
 
     struct sockaddr_in server_addr, client_addr;
     
@@ -226,7 +240,10 @@ printf("v7 \n");
     else {
        syslog(LOG_INFO, "Sucess to Listen");
     }
+#if !USE_AESD_CHAR_DEVICE
 	pthread_create(&timestamp_th, NULL, WriteTimestamp, NULL);
+#endif
+
     syslog(LOG_INFO, "Server initialized, listening on port %d", PORT_NO);
     
     while (Exit_Flag==0)
@@ -280,11 +297,14 @@ printf("v7 \n");
       close(server_fd);
 	
     // Graceful Cleanup
+    
+#if !USE_AESD_CHAR_DEVICE
     pthread_cancel(timestamp_th);
     pthread_join(timestamp_th, NULL);
     pthread_mutex_destroy(&FileMutex);
     close(server_fd);
     remove(FILE_PATH);
+#endif
     closelog();
     syslog(LOG_INFO, "gracefully exit server");
 
