@@ -10,6 +10,7 @@
  * @copyright Copyright (c) 2019
  *
  */
+#include "aesd_ioctl.h"
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -45,6 +46,110 @@ int aesd_release(struct inode *inode, struct file *filp)
     filp->private_data = NULL;
     return 0;
 }
+
+long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+    struct aesd_dev *dev = filp->private_data;
+    struct aesd_seekto seekto;
+
+    if (_IOC_TYPE(cmd) != AESD_IOC_MAGIC || _IOC_NR(cmd) > AESDCHAR_IOC_MAXNR)
+        return -ENOTTY;
+
+    if (cmd == AESDCHAR_IOCSEEKTO)
+    {
+        if (copy_from_user(&seekto, (const void __user *)arg, sizeof(seekto)))
+            return -EFAULT;
+
+        if (mutex_lock_interruptible(&dev->Mutexlock))
+            return -ERESTARTSYS;
+
+        // Validate write_cmd index
+        if (seekto.write_cmd >= AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED)
+        {
+            mutex_unlock(&dev->Mutexlock);
+            return -EINVAL;
+        }
+
+        uint8_t cmd_index = (dev->buffer.out_offs + seekto.write_cmd) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+        struct aesd_buffer_entry *entry = &dev->buffer.entry[cmd_index];
+
+        if (!entry->buffptr || seekto.write_cmd_offset > entry->size)
+        {
+            mutex_unlock(&dev->Mutexlock);
+            return -EINVAL;
+        }
+
+        // Calculate f_pos based on all previous entries
+        loff_t pos = 0;
+        for (uint8_t i = 0; i < seekto.write_cmd; ++i)
+        {
+            uint8_t real_index = (dev->buffer.out_offs + i) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+            pos += dev->buffer.entry[real_index].size;
+        }
+
+        pos += seekto.write_cmd_offset;
+        filp->f_pos = pos;
+
+        mutex_unlock(&dev->Mutexlock);
+        return 0;
+    }
+
+    return -ENOTTY;
+}
+
+
+loff_t aesd_llseek(struct file *filp, loff_t offset, int whence)
+{
+  struct aesd_dev *dev = filp->private_data;
+  loff_t new_pos = 0;
+  
+  if(dev==NULL)
+  {
+    return -EINVAL;
+  }
+  if (mutex_lock_interruptible(&dev->Mutexlock) !=0 ) 
+  {
+        
+        PDEBUG("Fail to acquire mutex\n");
+        return -ERESTART;
+    
+  }
+  
+  size_t total_size = 0;
+  struct aesd_buffer_entry *entry;
+  uint8_t Count;
+    AESD_CIRCULAR_BUFFER_FOREACH(entry, &dev->buffer, Count) 
+    {
+        total_size += entry->size;
+    }
+    
+    switch (whence) {
+        case SEEK_SET:
+            new_pos = offset;
+            break;
+        case SEEK_CUR:
+            new_pos = filp->f_pos + offset;
+            break;
+        case SEEK_END:
+            new_pos = total_size + offset;
+            break;
+        default:
+            mutex_unlock(&dev->Mutexlock);
+            return -EINVAL;
+    }
+
+    if (new_pos < 0 || new_pos > total_size) {
+        mutex_unlock(&dev->Mutexlock);
+        return -EINVAL;
+    }
+
+    filp->f_pos = new_pos;
+
+    mutex_unlock(&dev->Mutexlock);
+    return new_pos;
+    
+}
+
 
 ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
                   loff_t *f_pos)
@@ -194,12 +299,15 @@ else {
 
 
 struct file_operations aesd_fops = {
-    .owner =    THIS_MODULE,
-    .read =     aesd_read,
-    .write =    aesd_write,
-    .open =     aesd_open,
-    .release =  aesd_release,
+    .owner =           THIS_MODULE,
+    .read =            aesd_read,
+    .write =           aesd_write,
+    .open =            aesd_open,
+    .release =         aesd_release,
+    .llseek =          aesd_llseek,
+    .unlocked_ioctl =  aesd_ioctl,
 };
+
 
 static int aesd_setup_cdev(struct aesd_dev *dev)
 {
