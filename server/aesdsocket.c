@@ -14,6 +14,8 @@
 #include <stdbool.h>
 #include <errno.h>
 
+#include "../aesd-char-driver/aesd_ioctl.h"
+
 #define PORT_NO 9000
 #define USE_AESD_CHAR_DEVICE 1
 
@@ -22,8 +24,12 @@
 #else
 #define FILE_PATH "/var/tmp/aesdsocketdata"
 #endif
+#define IOCTL_CMD "AESDCHAR_IOCSEEKTO:"
 
 #define TIMESTAMP_INT 10
+
+
+
 
 int server_fd;
 bool Exit_Flag = false;
@@ -110,6 +116,27 @@ void *ClientHandle(void *arg) {
 
     while ((bytes_rec = recv(client_fd, Str_buffer, sizeof(Str_buffer) - 1, 0)) > 0) {
         Str_buffer[bytes_rec] = '\0';  // Null terminate
+        // Check for IOCTL command
+if (strncmp(Str_buffer, IOCTL_CMD, strlen(IOCTL_CMD)) == 0) {
+    struct aesd_seekto seekto_data;
+    if (sscanf(Str_buffer + strlen(IOCTL_CMD), "%u,%u", &seekto_data.write_cmd, &seekto_data.write_cmd_offset) == 2) {
+        if (ioctl(file_fd, AESDCHAR_IOCSEEKTO, &seekto_data) < 0) {
+            syslog(LOG_ERR, "IOCTL failed: %s", strerror(errno));
+        } else {
+            syslog(LOG_INFO, "IOCTL seek to cmd=%u offset=%u succeeded", seekto_data.write_cmd, seekto_data.write_cmd_offset);
+
+ssize_t bytes_read;
+while ((bytes_read = read(file_fd, Str_buffer, sizeof(Str_buffer))) > 0) {
+    send(client_fd, Str_buffer, bytes_read, 0);
+}
+
+        }
+    } else {
+        syslog(LOG_ERR, "Malformed IOCTL command");
+    }
+    continue; // Skip writing this to the file
+}
+
 
        pthread_mutex_lock(&FileMutex);
         
